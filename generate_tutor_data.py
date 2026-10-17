@@ -87,7 +87,9 @@ TARGET_BANDS = {7.0}  # the owner's goal may be named as a target
 BAND_RE = re.compile(r"(?:band|แบนด์)\s*(\d(?:\.\d)?)", re.I)
 QUOTE_RE = re.compile(r'"([^"]+)"|“([^”]+)”')
 ARROW_RE = re.compile(r"→|->")
-PROFILE_TAG = "(ปัญหาเดิมใน profile)"
+# Any line mentioning the profile claims evidence, tagged or as a heading.
+# Over-warning is preferred to letting an unsupported claim through.
+PROFILE_CLAIM_RE = re.compile(r"profile|ปัญหาเดิม", re.I)
 THAI_RE = re.compile(r"[฀-๿]")
 LATIN_RE = re.compile(r"[A-Za-z]")
 
@@ -178,8 +180,8 @@ def check_feedback(text, essay, band, profile, decoys):
 
     # Only the quote just left of an arrow claims to be the learner's words;
     # the right side is a quoted correction or a bracketed action such as
-    # (ตัดออก). A line may hold several arrows. A profile tag is evidence only
-    # on a line with an arrow whose left quote was found in the essay.
+    # (ตัดออก). A line may hold several arrows. A profile claim is supported
+    # only on a line with an arrow whose left quote was found in the essay.
     essay_n = _norm_quote(essay)
     for line in text.splitlines():
         verified = False
@@ -197,8 +199,8 @@ def check_feedback(text, essay, band, profile, decoys):
                 warnings.append(f'คำพูดไม่มีในเรียงความ: "{quote}"')
             elif pieces:
                 verified = True
-        if PROFILE_TAG in line and not verified:
-            warnings.append(f"{PROFILE_TAG} ไม่มีหลักฐาน: {line.strip()[:80]}")
+        if PROFILE_CLAIM_RE.search(line) and not verified:
+            warnings.append(f"อ้าง profile โดยไม่มีหลักฐาน: {line.strip()[:80]}")
 
     if not ARROW_RE.search(text):
         warnings.append('ไม่มีการแก้ในรูปแบบ "คำเดิม" → "คำแก้" จึงตรวจคำพูดไม่ได้')
