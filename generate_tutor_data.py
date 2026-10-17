@@ -111,7 +111,7 @@ def append_jsonl(path, row):
         f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-def gold_filter(rows, gold_path, threshold=0.9):
+def gold_filter(rows, gold_path, threshold=0.8):
     """Drop essays similar to any gold essay (gold is evaluation-only)."""
     if not os.path.exists(gold_path):
         return rows

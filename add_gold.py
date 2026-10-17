@@ -7,8 +7,8 @@ same file; the gold set is evaluation-only and gitignored.
 
 Training data checked: data/scoring_{train,val}.jsonl, data/tutor_sft.jsonl,
 data/my_essays.jsonl, and essays already in data/gold.csv. An essay at or above
---block similarity (TF-IDF cosine, same as prepare_data's duplicate threshold)
-is refused; one at or above --warn needs confirmation.
+--block similarity (TF-IDF cosine, same as prepare_data's --gold-threshold) is
+refused; one at or above --warn needs confirmation.
 
 Usage:
   python add_gold.py
@@ -84,7 +84,7 @@ def main():
     ap.add_argument("--val", default="data/scoring_val.jsonl")
     ap.add_argument("--tutor", default="data/tutor_sft.jsonl")
     ap.add_argument("--own", default="data/my_essays.jsonl")
-    ap.add_argument("--block", type=float, default=0.90)
+    ap.add_argument("--block", type=float, default=0.80)
     ap.add_argument("--warn", type=float, default=0.70)
     ap.add_argument("--min-words", type=int, default=120)
     args = ap.parse_args()

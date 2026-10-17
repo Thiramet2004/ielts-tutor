@@ -108,7 +108,9 @@ def main():
     ap.add_argument("--band-col", default="band")
     ap.add_argument("--out", default="data")
     ap.add_argument("--gold", default="data/gold.csv", help="evaluation-only essays to exclude")
-    ap.add_argument("--gold-threshold", type=float, default=0.90)
+    # Stricter than --dup-threshold: a revised copy of a gold essay (~0.88) must
+    # not stay in training, and dropping a few extra training rows costs little.
+    ap.add_argument("--gold-threshold", type=float, default=0.80)
     ap.add_argument("--below4", choices=["drop", "3.5"], default="3.5",
                     help='how to treat labels such as "<4"')
     ap.add_argument("--min-words", type=int, default=120)
