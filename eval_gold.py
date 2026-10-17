@@ -61,8 +61,16 @@ def main():
     print(f"gold set: {len(df)} essays")
     print("scorer   :", fmt(ours))
 
-    if "baseline_band" in df.columns:
-        base = band_metrics(df["band"], df["baseline_band"])
+    # Compare on essays that have a baseline only: a NaN band would make MAE NaN
+    # and the verdict below would always favour the baseline.
+    has = df["baseline_band"].notna() if "baseline_band" in df.columns else None
+    if has is not None and has.any():
+        sub = df[has]
+        if not has.all():
+            print(f"\nbaseline_band present for {has.sum()}/{len(df)} essays; comparing on those")
+            ours = band_metrics(sub["band"], sub["scorer_band"])
+            print("scorer   :", fmt(ours))
+        base = band_metrics(sub["band"], sub["baseline_band"])
         print("baseline :", fmt(base))
         better = ours["mae"] < base["mae"]
         print("verdict  :", "scorer beats baseline - study with it" if better
