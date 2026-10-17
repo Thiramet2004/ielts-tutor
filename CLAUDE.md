@@ -25,6 +25,7 @@ commit messages in English.
 ```bash
 python prepare_data.py                      # clean + dedupe + group split -> data/scoring_*.jsonl
 python train_scorer.py --max-len 1024 --bs 8
+python add_gold.py                          # add one trusted essay at a time to data/gold.csv
 python eval_gold.py --gold data/gold.csv    # gate: scorer vs baseline on trusted labels
 python generate_tutor_data.py --limit 15    # draft + owner review -> data/tutor_sft.jsonl
 python to_mlx_format.py --epochs 2          # data/tutor_sft.jsonl -> data/mlx/{train,valid}.jsonl

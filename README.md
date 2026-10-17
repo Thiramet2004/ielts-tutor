@@ -18,6 +18,7 @@ learner profile (error log, ดึงจากไฟล์/DB) ─────�
 |---|---|
 | `prepare_data.py` | ทำความสะอาด dataset สาธารณะ: แปลง label, ลบ near-duplicate ที่ label ขัดกัน, แบ่ง train/val ตามกลุ่มโจทย์ |
 | `train_scorer.py` | เทรน encoder (ค่าเริ่มต้น ModernBERT-base) ให้ทำนาย overall band |
+| `add_gold.py` | กรอก gold set ทีละชิ้น (โจทย์ เรียงความ band baseline แหล่งที่มา) ตรวจว่าไม่ซ้ำกับข้อมูลเทรน แล้วต่อท้าย `data/gold.csv` |
 | `eval_gold.py` | วัด Scorer กับ gold set และเทียบกับ baseline (ตัวตัดสินว่าจะใช้อะไรฝึกจริง) |
 | `generate_tutor_data.py` | ร่างฟีดแบ็กด้วยโมเดลครู (Qwen2.5-14B-Instruct, Apache 2.0) ผ่าน MLX ตรวจอัตโนมัติ แล้วให้คุณรีวิวก่อนบันทึกลง `data/tutor_sft.jsonl` |
 | `train_tutor_qlora.py` | QLoRA SFT ของ Tutor ด้วย TRL รูปแบบ prompt-completion |
@@ -45,7 +46,7 @@ python train_tutor_qlora.py --data data/tutor_sft.jsonl
 
 ## Gold set: สิ่งที่สำคัญที่สุดในโปรเจกต์นี้
 
-`data/gold.csv` ต้องมีคอลัมน์ `prompt, essay, band` และถ้ามี `baseline_band` (คะแนนจากเครื่องมือที่คุณใช้อยู่) จะได้เทียบกันด้วย
+`data/gold.csv` ต้องมีคอลัมน์ `prompt, essay, band` และถ้ามี `baseline_band` (คะแนนจากเครื่องมือที่คุณใช้อยู่) จะได้เทียบกันด้วย เพิ่มทีละชิ้นด้วย `python add_gold.py` ซึ่งจะบันทึกคอลัมน์ `source` ด้วย
 
 - ใช้เรียงความที่คะแนนเชื่อถือได้จริง 50–100 ชิ้น เช่น ให้ครูที่ผ่านการรับรองตรวจ หรือใช้ตัวอย่างพร้อมความเห็นผู้คุมสอบที่หน่วยงาน IELTS เผยแพร่ (ใช้เป็นชุดทดสอบส่วนตัวเท่านั้น ห้ามนำไปเทรนหรือเผยแพร่ต่อ)
 - **ห้ามใช้ gold set ตอนเทรนเด็ดขาด**
