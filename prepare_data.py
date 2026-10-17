@@ -1,6 +1,8 @@
 """Clean a public IELTS Writing Task 2 dataset into a scorer training set.
 
 Pipeline
+  0. Drop raw rows similar to any essay in --gold (TF-IDF cosine >= --gold-threshold),
+     so a gold essay can never reach training, whatever the later thresholds are.
   1. Parse the free-text band labels (e.g. "7.5", "<4") and drop junk rows.
   2. Find exact and near-duplicate essays (TF-IDF cosine). Clusters whose labels
      disagree by more than --max-label-gap are dropped: the same essay cannot be
@@ -20,6 +22,7 @@ Usage:
   python prepare_data.py --dataset chillies/IELTS-writing-task-2-evaluation
 """
 import argparse
+import csv
 import json
 import os
 import re
@@ -77,6 +80,26 @@ def similarity_clusters(texts, threshold, chunk=1000, **tfidf_kwargs):
     return list(groups.values())
 
 
+def drop_gold(raw, args):
+    """Remove raw rows whose essay is similar to a gold essay (gold is evaluation-only)."""
+    if not os.path.exists(args.gold):
+        print(f"WARNING: {args.gold} not found; skipping the gold filter. "
+              "Re-run this script after building the gold set.")
+        return raw
+    with open(args.gold, encoding="utf-8", newline="") as f:
+        gold = [normalise(r["essay"]) for r in csv.DictReader(f)]
+    if not gold:
+        print(f"WARNING: {args.gold} is empty; skipping the gold filter.")
+        return raw
+    texts = [normalise(ex[args.essay_col] or "") for ex in raw]
+    vec = TfidfVectorizer(ngram_range=(1, 2), sublinear_tf=True).fit(texts + gold)
+    sims = (vec.transform(texts) @ vec.transform(gold).T).max(axis=1).toarray().ravel()
+    kept = [ex for ex, s in zip(raw, sims) if s < args.gold_threshold]
+    print(f"gold filter: dropped {len(raw) - len(kept)} raw rows similar to "
+          f"{len(gold)} gold essays (TF-IDF >= {args.gold_threshold})")
+    return kept
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", default="chillies/IELTS-writing-task-2-evaluation")
@@ -84,6 +107,8 @@ def main():
     ap.add_argument("--essay-col", default="essay")
     ap.add_argument("--band-col", default="band")
     ap.add_argument("--out", default="data")
+    ap.add_argument("--gold", default="data/gold.csv", help="evaluation-only essays to exclude")
+    ap.add_argument("--gold-threshold", type=float, default=0.90)
     ap.add_argument("--below4", choices=["drop", "3.5"], default="3.5",
                     help='how to treat labels such as "<4"')
     ap.add_argument("--min-words", type=int, default=120)
@@ -101,16 +126,19 @@ def main():
     args = ap.parse_args()
 
     ds = load_dataset(args.dataset)
-    rows, raw_count = [], 0
-    for split in ds:  # merge all splits, then re-split without leakage
-        for ex in ds[split]:
-            raw_count += 1
-            band = parse_band(ex[args.band_col], args.below4)
-            essay = (ex[args.essay_col] or "").strip()
-            if band is None or len(essay.split()) < args.min_words:
-                continue
-            rows.append({"prompt": (ex[args.prompt_col] or "").strip(), "essay": essay, "band": band})
-    print(f"rows: {raw_count} raw -> {len(rows)} after label/length filtering")
+    raw = [ex for split in ds for ex in ds[split]]  # merge all splits, re-split later
+    raw_count = len(raw)
+    raw = drop_gold(raw, args)
+
+    rows = []
+    for ex in raw:
+        band = parse_band(ex[args.band_col], args.below4)
+        essay = (ex[args.essay_col] or "").strip()
+        if band is None or len(essay.split()) < args.min_words:
+            continue
+        rows.append({"prompt": (ex[args.prompt_col] or "").strip(), "essay": essay, "band": band})
+    print(f"rows: {raw_count} raw -> {len(raw)} after gold filter -> "
+          f"{len(rows)} after label/length filtering")
 
     clusters = similarity_clusters(
         [normalise(r["essay"]) for r in rows], args.dup_threshold,
