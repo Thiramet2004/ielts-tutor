@@ -52,6 +52,7 @@ Additional rules for this draft:
 - Write every correction as: "exact words from the essay" → "correction", then the explanation in Thai.
 - If the fix is to delete or move the words, put the action in brackets instead of a quote on the right of the arrow, e.g. "exact words from the essay" → (ตัดออก) or "exact words from the essay" → (ย้ายไปย่อหน้าเนื้อหา).
 - Add the tag (ปัญหาเดิมใน profile) only on a line that contains such an arrow, and never on any other line.
+- Whenever a correction on an arrow line is an instance of a LEARNER PROFILE issue, you must add the tag (ปัญหาเดิมใน profile) to that line, every time.
 - Follow the structure of the example answer."""
 
 # Issues whose presence cannot be checked cheaply. Never used as decoys.
