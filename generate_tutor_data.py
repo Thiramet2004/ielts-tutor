@@ -85,6 +85,7 @@ TARGET_BANDS = {7.0}  # the owner's goal may be named as a target
 BAND_RE = re.compile(r"(?:band|แบนด์)\s*(\d(?:\.\d)?)", re.I)
 QUOTE_RE = re.compile(r'"([^"]+)"|“([^”]+)”')
 ARROW_RE = re.compile(r"→|->")
+PROFILE_TAG = "(ปัญหาเดิมใน profile)"
 THAI_RE = re.compile(r"[฀-๿]")
 LATIN_RE = re.compile(r"[A-Za-z]")
 
@@ -175,8 +176,11 @@ def check_feedback(text, essay, band, profile, decoys):
 
     # Only the quote just left of an arrow claims to be the learner's words;
     # the right side is a correction. A line may hold several arrows.
+    # A profile tag is evidence only on a line with an arrow whose left quote
+    # was found in the essay.
     essay_n = _norm_quote(essay)
     for line in text.splitlines():
+        verified = False
         for left in ARROW_RE.split(line)[:-1]:
             quotes = QUOTE_RE.findall(left)
             if not quotes:
@@ -185,6 +189,10 @@ def check_feedback(text, essay, band, profile, decoys):
             pieces = [p for p in re.split(r"\.\.\.|…", quote) if _norm_quote(p)]
             if any(_norm_quote(p) not in essay_n for p in pieces):
                 warnings.append(f'คำพูดไม่มีในเรียงความ: "{quote}"')
+            elif pieces:
+                verified = True
+        if PROFILE_TAG in line and not verified:
+            warnings.append(f"{PROFILE_TAG} ไม่มีหลักฐาน: {line.strip()[:80]}")
 
     if not ARROW_RE.search(text):
         warnings.append('ไม่มีการแก้ในรูปแบบ "คำเดิม" → "คำแก้" จึงตรวจคำพูดไม่ได้')
