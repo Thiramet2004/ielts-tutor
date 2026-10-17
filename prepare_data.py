@@ -5,8 +5,12 @@ Pipeline
   2. Find exact and near-duplicate essays (TF-IDF cosine). Clusters whose labels
      disagree by more than --max-label-gap are dropped: the same essay cannot be
      both 5.5 and 7.5, so at least one label is wrong.
-  3. Split by prompt cluster so the same question never appears in both train
-     and validation.
+  3. Group prompts by character n-gram TF-IDF similarity and split by group, so
+     the same question never appears in both train and validation. Whole groups
+     are added to validation (in random order) until it holds ~--val-frac of the
+     rows; GroupShuffleSplit counts groups, not rows, so one huge group skews it.
+     Groups larger than --train-only-frac always go to train so that no single
+     question dominates validation.
 
 Only the numeric band is kept. The dataset's free-text `evaluation` column is
 generic, machine-written feedback that often contradicts the band, so it is not
@@ -24,7 +28,6 @@ from collections import Counter, defaultdict
 import numpy as np
 from datasets import load_dataset
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.model_selection import GroupShuffleSplit
 
 NUM = re.compile(r"\d+(?:\.\d+)?")
 
@@ -86,7 +89,13 @@ def main():
     ap.add_argument("--min-words", type=int, default=120)
     ap.add_argument("--dup-threshold", type=float, default=0.90)
     ap.add_argument("--max-label-gap", type=float, default=1.0)
-    ap.add_argument("--prompt-threshold", type=float, default=0.5)
+    ap.add_argument("--prompt-threshold", type=float, default=0.8)
+    # One question has ~9% of rows even when typo variants are its only merges,
+    # so this gate catches transitive chaining, not genuinely popular prompts.
+    ap.add_argument("--max-group-frac", type=float, default=0.10,
+                    help="abort if the largest prompt group holds this fraction of rows or more")
+    ap.add_argument("--train-only-frac", type=float, default=0.02,
+                    help="prompt groups larger than this fraction of rows are kept in train")
     ap.add_argument("--val-frac", type=float, default=0.1)
     ap.add_argument("--seed", type=int, default=42)
     args = ap.parse_args()
@@ -122,13 +131,29 @@ def main():
 
     prompt_groups = similarity_clusters(
         [normalise(r["prompt"]) for r in kept], args.prompt_threshold,
-        ngram_range=(1, 1), min_df=1, sublinear_tf=True)
-    group_id = np.empty(len(kept), dtype=int)
-    for g, idx in enumerate(prompt_groups):
-        group_id[idx] = g
+        analyzer="char_wb", ngram_range=(3, 5), min_df=1, sublinear_tf=True)
+    sizes = sorted((len(g) for g in prompt_groups), reverse=True)
+    print(f"prompt groups: {len(prompt_groups)}; largest: {sizes[:5]} "
+          f"({sizes[0] / len(kept):.1%} of rows); singletons: {sizes.count(1)}")
+    if sizes[0] >= args.max_group_frac * len(kept):
+        raise SystemExit(f"largest prompt group >= {args.max_group_frac:.0%} of rows; "
+                         "raise --prompt-threshold")
 
-    splitter = GroupShuffleSplit(n_splits=1, test_size=args.val_frac, random_state=args.seed)
-    train_idx, val_idx = next(splitter.split(np.zeros(len(kept)), groups=group_id))
+    rng = np.random.default_rng(args.seed)
+    target = round(args.val_frac * len(kept))
+    val_idx = []
+    for g in rng.permutation(len(prompt_groups)):
+        if len(val_idx) >= target:
+            break
+        if len(prompt_groups[g]) > args.train_only_frac * len(kept):
+            continue
+        val_idx.extend(prompt_groups[g])
+    val_set = set(val_idx)
+    train_idx = [i for i in range(len(kept)) if i not in val_set]
+    val_idx = sorted(val_idx)
+    for name, idx in (("train", train_idx), ("val", val_idx)):
+        n_prompts = len({normalise(kept[i]["prompt"]) for i in idx})
+        print(f"{name}: {len(idx)} rows ({len(idx) / len(kept):.1%}), {n_prompts} distinct prompts")
 
     os.makedirs(args.out, exist_ok=True)
     for name, idx in (("train", train_idx), ("val", val_idx)):
@@ -138,8 +163,9 @@ def main():
                 f.write(json.dumps(kept[i], ensure_ascii=False) + "\n")
         print(f"wrote {len(idx):>6} rows -> {path}")
 
-    hist = Counter(r["band"] for r in kept)
-    print("band distribution:", dict(sorted(hist.items())))
+    for name, idx in (("all", range(len(kept))), ("train", train_idx), ("val", val_idx)):
+        hist = Counter(kept[i]["band"] for i in idx)
+        print(f"band distribution ({name}):", dict(sorted(hist.items())))
 
 
 if __name__ == "__main__":
