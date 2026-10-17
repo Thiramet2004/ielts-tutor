@@ -50,6 +50,8 @@ Additional rules for this draft:
 - Only connect feedback to a LEARNER PROFILE issue if you quote an instance of it from this essay. If an issue does not occur, do not claim it does; you may say in one short sentence that it was not seen this time.
 - Do not give numeric bands for individual criteria.
 - Write every correction as: "exact words from the essay" → "correction", then the explanation in Thai.
+- If the fix is to delete or move the words, put the action in brackets instead of a quote on the right of the arrow, e.g. "exact words from the essay" → (ตัดออก) or "exact words from the essay" → (ย้ายไปย่อหน้าเนื้อหา).
+- Add the tag (ปัญหาเดิมใน profile) only on a line that contains such an arrow, and never on any other line.
 - Follow the structure of the example answer."""
 
 # Issues whose presence cannot be checked cheaply. Never used as decoys.
@@ -175,13 +177,17 @@ def check_feedback(text, essay, band, profile, decoys):
             warnings.append(f"มีตัวเลข band {m.group(1)} ที่ไม่ตรงกับ SCORER {band:.1f}")
 
     # Only the quote just left of an arrow claims to be the learner's words;
-    # the right side is a correction. A line may hold several arrows.
-    # A profile tag is evidence only on a line with an arrow whose left quote
-    # was found in the essay.
+    # the right side is a quoted correction or a bracketed action such as
+    # (ตัดออก). A line may hold several arrows. A profile tag is evidence only
+    # on a line with an arrow whose left quote was found in the essay.
     essay_n = _norm_quote(essay)
     for line in text.splitlines():
         verified = False
-        for left in ARROW_RE.split(line)[:-1]:
+        parts = ARROW_RE.split(line)
+        for right in parts[1:]:
+            if not right.lstrip().startswith(('"', "“", "(")):
+                warnings.append(f'ฝั่งขวาของ → ต้องเป็น "คำแก้" หรือ (การกระทำ): {right.strip()[:40]}')
+        for left in parts[:-1]:
             quotes = QUOTE_RE.findall(left)
             if not quotes:
                 continue
