@@ -1,0 +1,10 @@
+# Apple Silicon (M-series Mac). No CUDA, so no bitsandbytes/TRL QLoRA here:
+# the tutor is trained with MLX instead (see to_mlx_format.py and README).
+torch>=2.4
+transformers>=4.56.2
+accelerate>=1.10.1
+datasets>=4.7.0
+scikit-learn>=1.4
+pandas>=2.1
+numpy>=1.26
+mlx-lm>=0.32

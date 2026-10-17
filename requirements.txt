@@ -1,0 +1,11 @@
+# Tested against these API versions; pin them to avoid breaking changes.
+transformers>=4.56.2
+trl==1.16.0
+peft==0.21.2
+bitsandbytes>=0.45
+accelerate>=1.10.1
+datasets>=4.7.0
+scikit-learn>=1.4
+pandas>=2.1
+numpy>=1.26
+torch>=2.4

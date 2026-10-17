@@ -1,0 +1,23 @@
+# Data: the public dataset has no stated license and the gold set may contain
+# copyrighted examiner material, so nothing under data/ is committed except the example.
+data/*
+!data/tutor_sft.example.jsonl
+
+# Training outputs and model weights
+runs/
+models/
+*.safetensors
+*.bin
+*.gguf
+*.npz
+wandb/
+
+# Python / tooling
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+.env
+
+# macOS
+.DS_Store
