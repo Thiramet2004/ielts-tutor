@@ -19,6 +19,7 @@ learner profile (error log, ดึงจากไฟล์/DB) ─────�
 | `prepare_data.py` | ทำความสะอาด dataset สาธารณะ: แปลง label, ลบ near-duplicate ที่ label ขัดกัน, แบ่ง train/val ตามกลุ่มโจทย์ |
 | `train_scorer.py` | เทรน encoder (ค่าเริ่มต้น ModernBERT-base) ให้ทำนาย overall band |
 | `eval_gold.py` | วัด Scorer กับ gold set และเทียบกับ baseline (ตัวตัดสินว่าจะใช้อะไรฝึกจริง) |
+| `generate_tutor_data.py` | ร่างฟีดแบ็กด้วยโมเดลครู (Qwen2.5-14B-Instruct, Apache 2.0) ผ่าน MLX ตรวจอัตโนมัติ แล้วให้คุณรีวิวก่อนบันทึกลง `data/tutor_sft.jsonl` |
 | `train_tutor_qlora.py` | QLoRA SFT ของ Tutor ด้วย TRL รูปแบบ prompt-completion |
 | `tutor_system_prompt.txt` | system prompt ของ Tutor ใช้ทั้งตอนสร้างข้อมูลและตอนใช้งาน |
 | `data/tutor_sft.example.jsonl` | ตัวอย่าง 1 แถวของข้อมูลเทรน Tutor |

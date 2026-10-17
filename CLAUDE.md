@@ -26,6 +26,7 @@ commit messages in English.
 python prepare_data.py                      # clean + dedupe + group split -> data/scoring_*.jsonl
 python train_scorer.py --max-len 1024 --bs 8
 python eval_gold.py --gold data/gold.csv    # gate: scorer vs baseline on trusted labels
+python generate_tutor_data.py --limit 15    # draft + owner review -> data/tutor_sft.jsonl
 python to_mlx_format.py --epochs 2          # data/tutor_sft.jsonl -> data/mlx/{train,valid}.jsonl
 ```
 
