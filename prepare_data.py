@@ -8,11 +8,13 @@ Pipeline
      disagree by more than --max-label-gap are dropped: the same essay cannot be
      both 5.5 and 7.5, so at least one label is wrong.
   3. Group prompts by character n-gram TF-IDF similarity and split by group, so
-     the same question never appears in both train and validation. Whole groups
-     are added to validation (in random order) until it holds ~--val-frac of the
-     rows; GroupShuffleSplit counts groups, not rows, so one huge group skews it.
-     Groups larger than --train-only-frac always go to train so that no single
-     question dominates validation.
+     the same question never appears in both train and validation. Each group's
+     side depends only on a hash of its representative prompt (the smallest
+     normalised prompt in it): the group goes to validation if the hash falls
+     below --val-hash-frac. Removing a few rows (e.g. after adding gold essays)
+     therefore leaves every other group on the same side. Groups larger than
+     --train-only-frac always go to train so that no question dominates
+     validation.
 
 Only the numeric band is kept. The dataset's free-text `evaluation` column is
 generic, machine-written feedback that often contradicts the band, so it is not
@@ -23,6 +25,7 @@ Usage:
 """
 import argparse
 import csv
+import hashlib
 import json
 import os
 import re
@@ -80,6 +83,11 @@ def similarity_clusters(texts, threshold, chunk=1000, **tfidf_kwargs):
     return list(groups.values())
 
 
+def group_hash(key):
+    """Stable value in [0, 1) for a string (Python's hash() is salted per process)."""
+    return int(hashlib.sha1(key.encode("utf-8")).hexdigest()[:8], 16) / 2**32
+
+
 def drop_gold(raw, args):
     """Remove raw rows whose essay is similar to a gold essay (gold is evaluation-only)."""
     if not os.path.exists(args.gold):
@@ -123,8 +131,9 @@ def main():
                     help="abort if the largest prompt group holds this fraction of rows or more")
     ap.add_argument("--train-only-frac", type=float, default=0.02,
                     help="prompt groups larger than this fraction of rows are kept in train")
-    ap.add_argument("--val-frac", type=float, default=0.1)
-    ap.add_argument("--seed", type=int, default=42)
+    # Fraction of eligible groups, not rows. Group sizes are lumpy: 0.08 gives
+    # ~9% of rows on chillies/IELTS-writing-task-2-evaluation, 0.09 jumps to ~12.5%.
+    ap.add_argument("--val-hash-frac", type=float, default=0.08)
     args = ap.parse_args()
 
     ds = load_dataset(args.dataset)
@@ -169,15 +178,12 @@ def main():
         raise SystemExit(f"largest prompt group >= {args.max_group_frac:.0%} of rows; "
                          "raise --prompt-threshold")
 
-    rng = np.random.default_rng(args.seed)
-    target = round(args.val_frac * len(kept))
     val_idx = []
-    for g in rng.permutation(len(prompt_groups)):
-        if len(val_idx) >= target:
-            break
-        if len(prompt_groups[g]) > args.train_only_frac * len(kept):
+    for g in prompt_groups:
+        if len(g) > args.train_only_frac * len(kept):
             continue
-        val_idx.extend(prompt_groups[g])
+        if group_hash(min(normalise(kept[i]["prompt"]) for i in g)) < args.val_hash_frac:
+            val_idx.extend(g)
     val_set = set(val_idx)
     train_idx = [i for i in range(len(kept)) if i not in val_set]
     val_idx = sorted(val_idx)
